@@ -339,7 +339,7 @@ def get_conn(CONN=None):
 if __name__ == '__main__':
     # 进行测试
     # unittest.main()
-    conn = get_conn(CONN)
+    # conn = get_conn(CONN)
 
 
     # 发布一篇文章
@@ -361,3 +361,4 @@ if __name__ == '__main__':
     # articles = get_articles(conn, 1)
     # print("The currently highest-scoring articles are:")
     # pprint.pprint(articles)
+    pass

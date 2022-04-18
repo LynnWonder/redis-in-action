@@ -105,6 +105,7 @@ def clean_full_sessions(conn):
         for sess in sessions:
             sess = to_str(sess)
             session_keys.append('viewed:' + sess)
+            # TIP 这里新增了一个清理购物车的操作
             session_keys.append('cart:' + sess)  # A
 
         conn.delete(*session_keys)
@@ -286,71 +287,71 @@ class Inventory(object):
     #         print()
     #         print()
     #
-    # def test_login_cookies(self):
-    #     conn = self.conn
-    #     global LIMIT, QUIT
-    #     token = str(uuid.uuid4())
-    #
-    #     update_token(conn, token, 'username', 'itemX')
-    #     print("We just logged-in/updated token:", token)
-    #     print("For user:", 'username')
-    #     print()
-    #
-    #     print("What username do we get when we look-up that token?")
-    #     r = check_token(conn, token)
-    #     print(r)
-    #     print()
-    #     self.assertTrue(r)
-    #
-    #     print("Let's drop the maximum number of cookies to 0 to clean them out")
-    #     print("We will start a thread to do the cleaning, while we stop it later")
-    #
-    #     LIMIT = 0
-    #     t = threading.Thread(target=clean_sessions, args=(conn,))
-    #     t.setDaemon(1)  # to make sure it dies if we ctrl+C quit
-    #     t.start()
-    #     time.sleep(1)
-    #     QUIT = True
-    #     time.sleep(2)
-    #     if t.isAlive():
-    #         raise Exception("The clean sessions thread is still alive?!?")
-    #
-    #     s = conn.hlen('login:')
-    #     print("The current number of sessions still available is:", s)
-    #     self.assertFalse(s)
+    def test_login_cookies(self):
+        conn = self.conn
+        global LIMIT, QUIT
+        token = str(uuid.uuid4())
+
+        update_token(conn, token, 'username', 'itemX')
+        print("We just logged-in/updated token:", token)
+        print("For user:", 'username')
+        print()
+
+        print("What username do we get when we look-up that token?")
+        r = check_token(conn, token)
+        print(r)
+        print()
+        self.assertTrue(r)
+
+        print("Let's drop the maximum number of cookies to 0 to clean them out")
+        print("We will start a thread to do the cleaning, while we stop it later")
+
+        LIMIT = 0
+        t = threading.Thread(target=clean_sessions, args=(conn,))
+        t.setDaemon(1)  # to make sure it dies if we ctrl+C quit
+        t.start()
+        time.sleep(1)
+        QUIT = True
+        time.sleep(2)
+        if t.isAlive():
+            raise Exception("The clean sessions thread is still alive?!?")
+
+        s = conn.hlen('login:')
+        print("The current number of sessions still available is:", s)
+        self.assertFalse(s)
 
 
-#
-#     def test_shopping_cart_cookies(self):
-#         conn = self.conn
-#         global LIMIT, QUIT
-#         token = str(uuid.uuid4())
-#
-#         print("We'll refresh our session...")
-#         update_token(conn, token, 'username', 'itemX')
-#         print("And add an item to the shopping cart")
-#         add_to_cart(conn, token, "itemY", 3)
-#         r = conn.hgetall('cart:' + token)
-#         print("Our shopping cart currently has:", r)
-#         print()
-#
-#         self.assertTrue(len(r) >= 1)
-#
-#         print("Let's clean out our sessions and carts")
-#         LIMIT = 0
-#         t = threading.Thread(target=clean_full_sessions, args=(conn,))
-#         t.setDaemon(1) # to make sure it dies if we ctrl+C quit
-#         t.start()
-#         time.sleep(1)
-#         QUIT = True
-#         time.sleep(2)
-#         if t.isAlive():
-#             raise Exception("The clean sessions thread is still alive?!?")
-#
-#         r = conn.hgetall('cart:' + token)
-#         print("Our shopping cart now contains:", r)
-#
-#         self.assertFalse(r)
+
+    def test_shopping_cart_cookies(self):
+        conn = self.conn
+        global LIMIT, QUIT
+        token = str(uuid.uuid4())
+
+        print("We'll refresh our session...")
+        update_token(conn, token, 'username', 'itemX')
+        print("And add an item to the shopping cart")
+        add_to_cart(conn, token, "itemY", 3)
+        r = conn.hgetall('cart:' + token)
+        print("Our shopping cart currently has:", r)
+        print()
+
+        self.assertTrue(len(r) >= 1)
+
+        print("Let's clean out our sessions and carts")
+        LIMIT = 0
+        t = threading.Thread(target=clean_full_sessions, args=(conn,))
+        t.setDaemon(1) # to make sure it dies if we ctrl+C quit
+        t.start()
+        time.sleep(1)
+        QUIT = True
+        time.sleep(2)
+        if t.isAlive():
+            raise Exception("The clean sessions thread is still alive?!?")
+
+        r = conn.hgetall('cart:' + token)
+        print("Our shopping cart now contains:", r)
+
+        self.assertFalse(r)
 #
 #     def test_cache_request(self):
 #         conn = self.conn
@@ -465,4 +466,32 @@ if __name__ == '__main__':
     #
     # s = conn.hlen('login:')
     # print("The current number of sessions still available is:", s)
+
+    # TIP 实现购物车，需要
+    #   hash 记录购物车信息包含商品 ID 与商品订购数量之间的映射
+    # token = str(uuid.uuid4())
+    #
+    # # 新登录的用户 token 为 cbffb5c1-cf6a-45cf-82d9-ac9fe432d3bc
+    # print("We'll refresh our session...")
+    # update_token(conn, token, 'username', 'itemX')
+    # print("And add an item to the shopping cart")
+    # add_to_cart(conn, token, "itemY", 3)
+    # r = conn.hgetall('cart:' + token)
+    # print("Our shopping cart currently has:", r)
+    # print()
+
+    # TIP 清理 session，包括清理购物车中的内容
+    # print("Let's clean out our sessions and carts")
+    # LIMIT = 0
+    # t = threading.Thread(target=clean_full_sessions, args=(conn,))
+    # t.setDaemon(1)  # to make sure it dies if we ctrl+C quit
+    # t.start()
+    # time.sleep(1)
+    # QUIT = True
+    # time.sleep(2)
+    # if t.isAlive():
+    #     raise Exception("The clean sessions thread is still alive?!?")
+    #
+    # r = conn.hgetall('cart:' + token)
+    # print("Our shopping cart now contains:", r)
     pass

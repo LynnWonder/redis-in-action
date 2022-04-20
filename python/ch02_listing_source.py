@@ -506,7 +506,9 @@ if __name__ == '__main__':
 
     # update_token(conn, token, 'username', 'itemX')
     # token 3a841859-297d-4197-a44e-921c9d895bbc
-    # tip 注意只能在两段代码同时执行的时候产生的 hash 值才一样。
+    # tip 注意 python 只能在两段代码同时执行的时候产生的 hash 值才一样。
+    #  同一个程序运行过程中，单进程或者多进程的不同子进程 hash 同一个字符串是一样的
+    #  多次运行同一个程序 hash 同一个字符串的值是不一样的
     # url = 'http://test.com/?item=itemX'
     # print("We are going to cache a simple request against", url)
     # result = cache_request(conn, url, callback)

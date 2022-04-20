@@ -119,14 +119,18 @@ def clean_full_sessions(conn):
 
 # <start id="_1311_14471_8291"/>
 def cache_request(conn, request, callback):
+    # TIP 判断一个请求是否可以被缓存，里面必须包含物品 item_id
+    #   并且在最近 10000 个访问的商品中
     if not can_cache(conn, request):  # A
         return callback(request)  # A
 
     page_key = 'cache:' + hash_request(request)  # B
     content = conn.get(page_key)  # C
+    print('======>', content, page_key)
 
     if not content:
         content = callback(request)  # D
+        # TIP 只能缓存一次， setex 一般用来做锁，有效期为 300s
         conn.setex(page_key, 300, content)  # E
 
     return content  # F
@@ -352,31 +356,31 @@ class Inventory(object):
         print("Our shopping cart now contains:", r)
 
         self.assertFalse(r)
-#
-#     def test_cache_request(self):
-#         conn = self.conn
-#         token = str(uuid.uuid4())
-#
-#         def callback(request):
-#             return "content for " + request
-#
-#         update_token(conn, token, 'username', 'itemX')
-#         url = 'http://test.com/?item=itemX'
-#         print("We are going to cache a simple request against", url)
-#         result = cache_request(conn, url, callback)
-#         print("We got initial content:", repr(result))
-#         print()
-#
-#         self.assertTrue(result)
-#
-#         print("To test that we've cached the request, we'll pass a bad callback")
-#         result2 = cache_request(conn, url, None)
-#         print("We ended up getting the same response!", repr(result2))
-#
-#         self.assertEqual(to_bytes(result), to_bytes(result2))
-#
-#         self.assertFalse(can_cache(conn, 'http://test.com/'))
-#         self.assertFalse(can_cache(conn, 'http://test.com/?item=itemX&_=1234536'))
+
+    def test_cache_request(self):
+        conn = self.conn
+        token = str(uuid.uuid4())
+
+        def callback(request):
+            return "content for " + request
+
+        update_token(conn, token, 'username', 'itemX')
+        url = 'http://test.com/?item=itemX'
+        print("We are going to cache a simple request against", url)
+        result = cache_request(conn, url, callback)
+        print("We got initial content:", repr(result))
+        print()
+
+        self.assertTrue(result)
+
+        print("To test that we've cached the request, we'll pass a bad callback")
+        result2 = cache_request(conn, url, None)
+        print("We ended up getting the same response!", repr(result2))
+
+        self.assertEqual(to_bytes(result), to_bytes(result2))
+
+        self.assertFalse(can_cache(conn, 'http://test.com/'))
+        self.assertFalse(can_cache(conn, 'http://test.com/?item=itemX&_=1234536'))
 #
 #     def test_cache_rows(self):
 #         import pprint
@@ -494,4 +498,22 @@ if __name__ == '__main__':
     #
     # r = conn.hgetall('cart:' + token)
     # print("Our shopping cart now contains:", r)
+
+    # TIP 缓存网页，Django 做的网页或者说 view 缓存就是这样的
+    def callback(request):
+        return "content for " + request
+
+
+    # update_token(conn, token, 'username', 'itemX')
+    # token 3a841859-297d-4197-a44e-921c9d895bbc
+    # tip 注意只能在两段代码同时执行的时候产生的 hash 值才一样。
+    # url = 'http://test.com/?item=itemX'
+    # print("We are going to cache a simple request against", url)
+    # result = cache_request(conn, url, callback)
+    # print("We got initial content:", repr(result))
+    # print()
+    #
+    # print("To test that we've cached the request, we'll pass a bad callback")
+    # result2 = cache_request(conn, url, None)
+    # print("We ended up getting the same response!", repr(result2))
     pass

@@ -3,6 +3,7 @@ import threading
 import time
 import urllib.parse
 import uuid
+import pprint
 from conn import get_conn
 
 
@@ -162,6 +163,7 @@ def cache_rows(conn):
     while not QUIT:
         next = conn.zrange('schedule:', 0, 0, withscores=True)  # A
         now = time.time()
+        # tip 不停的 sleep 一直到 schedule 的时间
         if not next or next[0][1] > now:
             time.sleep(.05)  # B
             continue
@@ -169,6 +171,7 @@ def cache_rows(conn):
         row_id = next[0][0]
         row_id = to_str(row_id)
         delay = conn.zscore('delay:', row_id)  # C
+        # 如果设置的数据缓存时间不大于 0 则认为不再需要展示
         if delay <= 0:
             conn.zrem('delay:', row_id)  # D
             conn.zrem('schedule:', row_id)  # D
@@ -176,7 +179,9 @@ def cache_rows(conn):
             continue
 
         row = Inventory.get(row_id)  # E
+        # 更新 row_id 的调度时间
         conn.zadd('schedule:', {row_id: now + delay})  # F
+        # tip 以下内容纯粹是为了显示用的
         row = {to_str(k): to_str(v) for k, v in row.to_dict().items()}
         conn.set('inv:' + row_id, json.dumps(row))  # F
 
@@ -381,54 +386,54 @@ class Inventory(object):
 
         self.assertFalse(can_cache(conn, 'http://test.com/'))
         self.assertFalse(can_cache(conn, 'http://test.com/?item=itemX&_=1234536'))
-#
-#     def test_cache_rows(self):
-#         import pprint
-#         conn = self.conn
-#         global QUIT
-#
-#         print("First, let's schedule caching of itemX every 5 seconds")
-#         schedule_row_cache(conn, 'itemX', 5)
-#         print("Our schedule looks like:")
-#         s = conn.zrange('schedule:', 0, -1, withscores=True)
-#         pprint.pprint(s)
-#         self.assertTrue(s)
-#
-#         print("We'll start a caching thread that will cache the data...")
-#         t = threading.Thread(target=cache_rows, args=(conn,))
-#         t.setDaemon(1)
-#         t.start()
-#
-#         time.sleep(1)
-#         print("Our cached data looks like:")
-#         r = conn.get('inv:itemX')
-#         print(repr(r))
-#         self.assertTrue(r)
-#         print()
-#         print("We'll check again in 5 seconds...")
-#         time.sleep(5)
-#         print("Notice that the data has changed...")
-#         r2 = conn.get('inv:itemX')
-#         print(repr(r2))
-#         print()
-#         self.assertTrue(r2)
-#         self.assertTrue(r != r2)
-#
-#         print("Let's force un-caching")
-#         schedule_row_cache(conn, 'itemX', -1)
-#         time.sleep(1)
-#         r = conn.get('inv:itemX')
-#         print("The cache was cleared?", not r)
-#         print()
-#         self.assertFalse(r)
-#
-#         QUIT = True
-#         time.sleep(2)
-#         if t.isAlive():
-#             raise Exception("The database caching thread is still alive?!?")
-#
-#     # We aren't going to bother with the top 10k requests are cached, as
-#     # we already tested it as part of the cached requests test.
+
+    def test_cache_rows(self):
+        import pprint
+        conn = self.conn
+        global QUIT
+
+        print("First, let's schedule caching of itemX every 5 seconds")
+        schedule_row_cache(conn, 'itemX', 5)
+        print("Our schedule looks like:")
+        s = conn.zrange('schedule:', 0, -1, withscores=True)
+        pprint.pprint(s)
+        self.assertTrue(s)
+
+        print("We'll start a caching thread that will cache the data...")
+        t = threading.Thread(target=cache_rows, args=(conn,))
+        t.setDaemon(1)
+        t.start()
+
+        time.sleep(1)
+        print("Our cached data looks like:")
+        r = conn.get('inv:itemX')
+        print(repr(r))
+        self.assertTrue(r)
+        print()
+        print("We'll check again in 5 seconds...")
+        time.sleep(5)
+        print("Notice that the data has changed...")
+        r2 = conn.get('inv:itemX')
+        print(repr(r2))
+        print()
+        self.assertTrue(r2)
+        self.assertTrue(r != r2)
+
+        print("Let's force un-caching")
+        schedule_row_cache(conn, 'itemX', -1)
+        time.sleep(1)
+        r = conn.get('inv:itemX')
+        print("The cache was cleared?", not r)
+        print()
+        self.assertFalse(r)
+
+        QUIT = True
+        time.sleep(2)
+        if t.isAlive():
+            raise Exception("The database caching thread is still alive?!?")
+
+    # We aren't going to bother with the top 10k requests are cached, as
+    # we already tested it as part of the cached requests test.
 
 if __name__ == '__main__':
     # unittest.main()
@@ -518,4 +523,42 @@ if __name__ == '__main__':
     # print("To test that we've cached the request, we'll pass a bad callback")
     # result2 = cache_request(conn, url, None)
     # print("We ended up getting the same response!", repr(result2))
-    pass
+
+
+    # TIP 数据行缓存
+    #  这个功能对应对促销活动十分有意义，相当于起一个长连接或者 http 短连接每隔五秒钟拉一次数据
+    #  从而实现促销商品数量的及时更新，注意这里使用了两个有序集合 zset, 分别是调度用和缓存时间设置用 zset
+    # print("First, let's schedule caching of itemX every 5 seconds")
+    # schedule_row_cache(conn, 'itemX', 5)
+    # print("Our schedule looks like:")
+    # s = conn.zrange('schedule:', 0, -1, withscores=True)
+    # pprint.pprint(s)
+
+    print("We'll start a caching thread that will cache the data...")
+    t = threading.Thread(target=cache_rows, args=(conn,))
+    t.setDaemon(1)
+    t.start()
+
+    time.sleep(1)
+    print("Our cached data looks like:")
+    r = conn.get('inv:itemX')
+    print(repr(r))
+    print()
+    print("We'll check again in 5 seconds...")
+    time.sleep(5)
+    print("Notice that the data has changed...")
+    r2 = conn.get('inv:itemX')
+    print(repr(r2))
+    print()
+
+    print("Let's force un-caching")
+    schedule_row_cache(conn, 'itemX', -1)
+    time.sleep(1)
+    r = conn.get('inv:itemX')
+    print("The cache was cleared?", not r)
+    print()
+
+    QUIT = True
+    time.sleep(2)
+    if t.isAlive():
+        raise Exception("The database caching thread is still alive?!?")

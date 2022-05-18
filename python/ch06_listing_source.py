@@ -156,6 +156,7 @@ def purchase_item(conn, buyerid, itemid, sellerid, lprice):
 #END
 
 # <start id="_1314_14473_8641"/>
+# TIP 获取锁失败时会在指定的时间限内重试，直到成功获取锁或超过给定的时限为止
 def acquire_lock(conn, lockname, acquire_timeout=10):
     identifier = str(uuid.uuid4())                      #A
 
@@ -191,6 +192,7 @@ def purchase_item_with_lock(conn, buyerid, itemid, sellerid):
         if price is None or price > funds:     #B
             return None                        #B
 
+        # TIP hincrby 为 hash 表中的字段值加上指定的量
         pipe.hincrby(seller, 'funds', int(price))  #C
         pipe.hincrby(buyer, 'funds', int(-price))  #C
         pipe.sadd(inventory, itemid)               #C
@@ -198,6 +200,7 @@ def purchase_item_with_lock(conn, buyerid, itemid, sellerid):
         pipe.execute()                             #C
         return True
     finally:
+        # 商品购买操作完成后（包括对钱和商品进行相应的转移），程序就会释放锁。
         release_lock(conn, 'market:', locked)      #D
 # <end id="_1314_14473_8645"/>
 #A Get the lock
@@ -207,6 +210,7 @@ def purchase_item_with_lock(conn, buyerid, itemid, sellerid):
 #END
 
 # <start id="_1314_14473_8650"/>
+# TIP 释放锁
 def release_lock(conn, lockname, identifier):
     pipe = conn.pipeline(True)
     lockname = 'lock:' + lockname
@@ -237,6 +241,7 @@ def release_lock(conn, lockname, identifier):
 #END
 
 # <start id="_1314_14473_8790"/>
+# 带有超时限制特性的锁
 def acquire_lock_with_timeout(
     conn, lockname, acquire_timeout=10, lock_timeout=10):
     identifier = str(uuid.uuid4())                      #A

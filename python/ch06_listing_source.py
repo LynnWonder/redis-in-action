@@ -219,8 +219,10 @@ def release_lock(conn, lockname, identifier):
 
     while True:
         try:
+            # TIP watch 命令可以监控一个或多个键，一旦其中有一个键被修改（或删除），之后的事务就不会执行。
             pipe.watch(lockname)                  #A
             if pipe.get(lockname) == identifier:  #A
+                # 标记一个事务块的开始
                 pipe.multi()                      #B
                 pipe.delete(lockname)             #B
                 pipe.execute()                    #B

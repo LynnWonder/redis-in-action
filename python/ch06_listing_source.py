@@ -372,6 +372,7 @@ def send_sold_email_via_queue(conn, seller, item, price, buyer):
         'buyer_id': buyer,                      #A
         'time': time.time()                     #A
     }
+    # 插入到队列的尾部 data 数据的 json 字符串
     conn.rpush('queue:email', json.dumps(data)) #B
 # <end id="_1314_14473_9056"/>
 #A Prepare the item
@@ -381,10 +382,12 @@ def send_sold_email_via_queue(conn, seller, item, price, buyer):
 # <start id="_1314_14473_9060"/>
 def process_sold_email_queue(conn):
     while not QUIT:
+        # 移出并获取第一个元素
         packed = conn.blpop(['queue:email'], 30)                  #A
         if not packed:                                            #B
             continue                                              #B
 
+        # 反序列化为 Python 对象
         to_send = json.loads(packed[1])                           #C
         try:
             fetch_data_and_send_sold_email(to_send)               #D
@@ -400,6 +403,7 @@ def process_sold_email_queue(conn):
 #END
 
 # <start id="_1314_14473_9066"/>
+# 处理多个可执行任务
 def worker_watch_queue(conn, queue, callbacks):
     while not QUIT:
         packed = conn.blpop([queue], 30)                    #A
@@ -439,6 +443,7 @@ def worker_watch_queues(conn, queues, callbacks):   #A
 # <start id="_1314_14473_9094"/>
 def execute_later(conn, queue, name, args, delay=0):
     identifier = str(uuid.uuid4())                          #A
+    # 序列化为 json 字符串
     item = json.dumps([identifier, queue, name, args])      #B
     if delay > 0:
         conn.zadd('delayed:', {item: time.time() + delay})  #C
@@ -464,6 +469,7 @@ def poll_queue(conn):
         item = item[0][0]                                       #C
         identifier, queue, function, args = json.loads(item)    #C
 
+        # 获取锁
         locked = acquire_lock(conn, identifier)                 #D
         if not locked:                                          #E
             continue                                            #E
